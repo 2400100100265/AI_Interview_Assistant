@@ -243,6 +243,24 @@ if st.session_state.questions:
                             question,
                             answer
                         )
+                        import re
+
+tech = re.search(r"Technical Accuracy.*?(\d+)", result)
+comm = re.search(r"Communication.*?(\d+)", result)
+conf = re.search(r"Confidence.*?(\d+)", result)
+
+if tech:
+    st.metric("Technical", f"{tech.group(1)}/10")
+    st.progress(int(tech.group(1)) * 10)
+
+if comm:
+    st.metric("Communication", f"{comm.group(1)}/10")
+    st.progress(int(comm.group(1)) * 10)
+
+if conf:
+    st.metric("Confidence", f"{conf.group(1)}/10")
+    st.progress(int(conf.group(1)) * 10)
+                        
 
                     st.markdown(result)
 
