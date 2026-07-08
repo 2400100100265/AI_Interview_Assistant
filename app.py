@@ -35,7 +35,6 @@ def extract_text_from_pdf(uploaded_file):
 
     return text
 
-
 def summarize_resume(resume_text):
     prompt = f"""
     Analyze this resume and provide:
@@ -49,8 +48,13 @@ def summarize_resume(resume_text):
     {resume_text}
     """
 
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        st.error(f"ERROR: {str(e)}")
+        return "Error"
+ 
 
 
 def generate_questions(resume_text, role, difficulty):
