@@ -1,49 +1,71 @@
-import os
+ import os
+import re
 import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# -----------------------------
-# CONFIG
-# -----------------------------
+# ---------------------------------
+# PAGE CONFIG
+# ---------------------------------
 st.set_page_config(
     page_title="AI Interview Assistant",
     page_icon="🤖",
     layout="wide"
 )
 
-# -----------------------------
+# ---------------------------------
 # GEMINI SETUP
-# -----------------------------
-API_KEY = st.secrets["GEMINI_API_KEY"]
+# ---------------------------------
+API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not API_KEY:
+    st.error("GEMINI_API_KEY not found.")
+    st.stop()
 
 genai.configure(api_key=API_KEY)
 
-model = genai.GenerativeModel("gemini-flash-latest")
- 
+model = genai.GenerativeModel("gemini-2.0-flash")
 
-# -----------------------------
+# ---------------------------------
+# SESSION STATE
+# ---------------------------------
+if "questions" not in st.session_state:
+    st.session_state.questions = []
+
+if "current_question" not in st.session_state:
+    st.session_state.current_question = 0
+
+if "scores" not in st.session_state:
+    st.session_state.scores = []
+
+# ---------------------------------
 # FUNCTIONS
-# -----------------------------
+# ---------------------------------
 def extract_text_from_pdf(uploaded_file):
     text = ""
-    pdf_reader = PdfReader(uploaded_file)
 
-    for page in pdf_reader.pages:
+    pdf = PdfReader(uploaded_file)
+
+    for page in pdf.pages:
         page_text = page.extract_text()
         if page_text:
             text += page_text + "\n"
 
     return text
 
+
 def summarize_resume(resume_text):
+
     prompt = f"""
-    Analyze this resume and provide:
+    Analyze the resume.
+
+    Return:
 
     1. Candidate Summary
     2. Key Skills
     3. Strengths
-    4. Suggested Interview Focus Areas
+    4. Weaknesses
+    5. Suggested Career Roles
 
     Resume:
     {resume_text}
@@ -53,35 +75,40 @@ def summarize_resume(resume_text):
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        st.error(f"ERROR: {str(e)}")
-        return "Error"
- 
+        return f"Error: {e}"
 
 
 def generate_questions(resume_text, role, difficulty):
+
     prompt = f"""
-    Based on this resume:
+    Resume:
 
     {resume_text}
 
     Generate 10 interview questions.
 
     Role: {role}
+
     Difficulty: {difficulty}
 
     Mix:
     - Technical
-    - Behavioral
+    - HR
     - Problem Solving
+    - Project Based
 
     Return only numbered questions.
     """
 
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Error: {e}"
 
 
 def evaluate_answer(question, answer):
+
     prompt = f"""
     You are an expert interviewer.
 
@@ -91,60 +118,59 @@ def evaluate_answer(question, answer):
     Candidate Answer:
     {answer}
 
-    
- 
+    Give score out of 10.
 
-    Give detailed feedback.
+    Format EXACTLY:
 
-    Return in this format:
-
-    Technical Accuracy:
-    Communication:
-    Confidence:
-    Overall Score:
-    Evaluate on:
-
-Technical Accuracy: X/10
-Communication: X/10
-Confidence: X/10
-
-Give Overall Score out of 100.
-
-Feedback:
-Strengths:
-Weaknesses:
-Suggestions:
-    
+    Technical Accuracy: X
+    Communication: X
+    Confidence: X
 
     Feedback:
+    Your feedback
+
+    Strength:
+    Candidate strength
+
+    Weakness:
+    Candidate weakness
     """
 
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Error: {e}"
 
 
-# -----------------------------
-# SESSION STATE
-# -----------------------------
-if "questions" not in st.session_state:
-    st.session_state.questions = []
-
-if "current_question" not in st.session_state:
-    st.session_state.current_question = 0
-
-# -----------------------------
-# UI
-# -----------------------------
+# ---------------------------------
+# HEADER
+# ---------------------------------
 st.title("🤖 AI Interview Assistant")
 
-st.markdown(
-    """
-    Upload your resume and practice AI-generated interviews.
-    """
-)
+st.markdown("""
+### Features
 
+✅ Resume Analysis
+
+✅ AI Generated Questions
+
+✅ Answer Evaluation
+
+✅ Technical Score
+
+✅ Communication Score
+
+✅ Confidence Score
+
+✅ Final Report
+""")
+
+# ---------------------------------
+# INPUTS
+# ---------------------------------
 uploaded_file = st.file_uploader(
-    "Upload Resume (PDF/TXT)",
+    "Upload Resume",
     type=["pdf", "txt"]
 )
 
@@ -158,9 +184,9 @@ difficulty = st.selectbox(
     ["Easy", "Medium", "Hard"]
 )
 
-# -----------------------------
-# RESUME PROCESSING
-# -----------------------------
+# ---------------------------------
+# RESUME
+# ---------------------------------
 if uploaded_file:
 
     if uploaded_file.type == "application/pdf":
@@ -178,15 +204,21 @@ if uploaded_file:
             height=250
         )
 
+    # ANALYZE
     if st.button("Analyze Resume"):
+
         with st.spinner("Analyzing Resume..."):
+
             summary = summarize_resume(resume_text)
 
         st.subheader("Resume Analysis")
         st.markdown(summary)
 
+    # QUESTIONS
     if st.button("Generate Interview Questions"):
+
         with st.spinner("Generating Questions..."):
+
             questions_text = generate_questions(
                 resume_text,
                 role,
@@ -196,6 +228,7 @@ if uploaded_file:
         question_list = []
 
         for line in questions_text.split("\n"):
+
             line = line.strip()
 
             if len(line) > 5:
@@ -203,12 +236,13 @@ if uploaded_file:
 
         st.session_state.questions = question_list
         st.session_state.current_question = 0
+        st.session_state.scores = []
 
         st.success("Questions Generated")
 
-# -----------------------------
-# INTERVIEW SECTION
-# -----------------------------
+# ---------------------------------
+# INTERVIEW
+# ---------------------------------
 if st.session_state.questions:
 
     st.header("Interview Session")
@@ -220,68 +254,176 @@ if st.session_state.questions:
         question = st.session_state.questions[idx]
 
         st.subheader(
-            f"Question {idx + 1} / {len(st.session_state.questions)}"
+            f"Question {idx+1} / {len(st.session_state.questions)}"
         )
 
         st.info(question)
 
         answer = st.text_area(
             "Your Answer",
-            height=180,
+            height=200,
             key=f"answer_{idx}"
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
+
             if st.button("Evaluate Answer"):
 
                 if answer.strip():
 
                     with st.spinner("Evaluating..."):
+
                         result = evaluate_answer(
                             question,
                             answer
                         )
-                        import re
-
-                        tech = re.search(r"Technical Accuracy.*?(\d+)", result)
-                        comm = re.search(r"Communication.*?(\d+)", result)
-                        conf = re.search(r"Confidence.*?(\d+)", result)
-
-                        if tech:
-                        st.metric("Technical", f"{tech.group(1)}/10")
-                        st.progress(int(tech.group(1)) * 10)
-
-                       if comm:
-                       st.metric("Communication", f"{comm.group(1)}/10")
-                       st.progress(int(comm.group(1)) * 10)
-
-                       if conf:
-                       st.metric("Confidence", f"{conf.group(1)}/10")
-                       st.progress(int(conf.group(1)) * 10)
-                        
 
                     st.markdown(result)
 
+                    tech = re.search(
+                        r"Technical Accuracy:\s*(\d+)",
+                        result
+                    )
+
+                    comm = re.search(
+                        r"Communication:\s*(\d+)",
+                        result
+                    )
+
+                    conf = re.search(
+                        r"Confidence:\s*(\d+)",
+                        result
+                    )
+
+                    if tech and comm and conf:
+
+                        tech_score = int(
+                            tech.group(1)
+                        )
+
+                        comm_score = int(
+                            comm.group(1)
+                        )
+
+                        conf_score = int(
+                            conf.group(1)
+                        )
+
+                        overall = round(
+                            (
+                                tech_score
+                                + comm_score
+                                + conf_score
+                            ) / 3,
+                            2
+                        )
+
+                        st.metric(
+                            "Technical",
+                            f"{tech_score}/10"
+                        )
+                        st.progress(
+                            tech_score * 10
+                        )
+
+                        st.metric(
+                            "Communication",
+                            f"{comm_score}/10"
+                        )
+                        st.progress(
+                            comm_score * 10
+                        )
+
+                        st.metric(
+                            "Confidence",
+                            f"{conf_score}/10"
+                        )
+                        st.progress(
+                            conf_score * 10
+                        )
+
+                        st.metric(
+                            "Overall",
+                            f"{overall}/10"
+                        )
+
+                        st.session_state.scores.append(
+                            overall
+                        )
+
                 else:
-                    st.warning("Please enter an answer.")
+                    st.warning(
+                        "Please enter an answer."
+                    )
 
         with col2:
+
             if st.button("Next Question"):
 
                 st.session_state.current_question += 1
                 st.rerun()
 
     else:
-        st.success("Interview Completed 🎉")
+
+        st.success(
+            "Interview Completed 🎉"
+        )
 
         st.balloons()
 
-        st.markdown(
-            """
-            ### Congratulations
+        if st.session_state.scores:
 
-            You have completed the AI interview session.
-            """
-        )
+            avg_score = round(
+                sum(
+                    st.session_state.scores
+                )
+                /
+                len(
+                    st.session_state.scores
+                ),
+                2
+            )
+
+            st.header(
+                "Final Interview Report"
+            )
+
+            st.metric(
+                "Overall Score",
+                f"{avg_score}/10"
+            )
+
+            if avg_score >= 8:
+                st.success(
+                    "Excellent Candidate"
+                )
+
+            elif avg_score >= 6:
+                st.warning(
+                    "Good Candidate"
+                )
+
+            else:
+                st.error(
+                    "Needs Improvement"
+                )
+
+            report = f"""
+AI INTERVIEW REPORT
+
+Overall Score:
+{avg_score}/10
+
+Questions Attempted:
+{len(st.session_state.scores)}
+
+Generated using Gemini AI.
+"""
+
+            st.download_button(
+                "📥 Download Report",
+                report,
+                file_name="Interview_Report.txt"
+            )
