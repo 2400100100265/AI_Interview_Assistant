@@ -194,6 +194,7 @@ if uploaded_file:
 
     else:
         resume_text = uploaded_file.read().decode("utf-8")
+        resume_text = resume_text[:8000]
 
     st.success("Resume Loaded Successfully")
 
