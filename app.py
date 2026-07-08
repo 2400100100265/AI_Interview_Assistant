@@ -91,11 +91,8 @@ def evaluate_answer(question, answer):
     Candidate Answer:
     {answer}
 
-    Evaluate on:
-
-    - Technical Accuracy (0-10)
-    - Communication (0-10)
-    - Confidence (0-10)
+    
+ 
 
     Give detailed feedback.
 
@@ -105,6 +102,19 @@ def evaluate_answer(question, answer):
     Communication:
     Confidence:
     Overall Score:
+    Evaluate on:
+
+Technical Accuracy: X/10
+Communication: X/10
+Confidence: X/10
+
+Give Overall Score out of 100.
+
+Feedback:
+Strengths:
+Weaknesses:
+Suggestions:
+    
 
     Feedback:
     """
