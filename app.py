@@ -53,10 +53,10 @@ def summarize_resume(resume_text):
     {resume_text}
     """
     try:
-    response = model.generate_content(prompt)
-    return response.text
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-    return f"Error: {str(e)}"
+        return f"Error: {str(e)}"
 
 
 def generate_questions(resume_text, role, difficulty):
