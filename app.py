@@ -23,7 +23,7 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-model = genai.GenerativeModel("gemini-2.0-flash")
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 # -----------------------------
 # FUNCTIONS
@@ -52,9 +52,11 @@ def summarize_resume(resume_text):
     Resume:
     {resume_text}
     """
-
+    try:
     response = model.generate_content(prompt)
     return response.text
+    except Exception as e:
+    return f"Error: {str(e)}"
 
 
 def generate_questions(resume_text, role, difficulty):
@@ -157,6 +159,9 @@ if uploaded_file:
 
     else:
         resume_text = uploaded_file.read().decode("utf-8")
+    if not resume_text.strip():
+        st.error("No text could be extracted from the resume .")
+        st.stop()
 
     st.success("Resume Loaded Successfully")
 
