@@ -23,7 +23,7 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-model = genai.GenerativeModel("gemini-2.0-flash")
+model = genai.GenerativeModel("gemini-3.5-flash")
 
 # -----------------------------
 # FUNCTIONS
